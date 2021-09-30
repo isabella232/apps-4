@@ -12,10 +12,21 @@ const callWebhook = (webhookUrl, authToken) => fetch(webhookUrl, {
   body: JSON.stringify({})
 });
 
+const makeContentSyncPreviewUrl = ({
+  contentSyncUrl,
+  manifestId,
+}) => `${contentSyncUrl}/gatsby-source-contentful/${manifestId}`;
+
 export default class Sidebar extends React.Component {
   static propTypes = {
     sdk: PropTypes.object.isRequired
   };
+
+  /**
+   * Used to store a reference to the preview tab window object so that the URL
+   * can be updated with the correct manifestId if changes have been detected
+   */
+  previewWindow = null;
 
   constructor(props) {
     super(props);
@@ -104,23 +115,15 @@ export default class Sidebar extends React.Component {
     callWebhook(webhookUrl, authToken);
   }
 
-  startGatsbyPreviewBuild = () => {
-    const { previewWebhookUrl, authToken } = this.sdk.parameters.installation;
-
-    if (!previewWebhookUrl) {
-      /**
-       * @todo add this warning to the UI
-       */
-      console.warn('Warning: Gatsby preview build not started since no preview webhook url has been configured.');
-      return;
-    }
-
-    callWebhook(previewWebhookUrl, authToken);
-    
-  }
-
   handleGatsbyBuilds = (sysMeta) => {
-    const { lastPublishedDateTime, lastUpdatedDateTime } = this.state;
+    const { lastPublishedDateTime, lastUpdatedDateTime, manifestId } = this.state;
+    const { parameters } = this.sdk;
+    const {
+      webhookUrl,
+      previewWebhookUrl,
+      authToken,
+      contentSyncUrl,
+    } = parameters.installation;
 
     /**
      * if these timestamps are equal than the content has not been published OR has not been
@@ -132,11 +135,14 @@ export default class Sidebar extends React.Component {
       return;
     }
 
-    if (lastUpdatedDateTime && lastUpdatedDateTime === sysMeta.updatedAt) {
-      console.log('preview build');
-      this.startGatsbyPreviewBuild();
-      return
+    console.log('preview build');
+    console.log({ contentSyncUrl, manifestId, previewWindow: this.previewWindow });
+    if (contentSyncUrl && manifestId && this.previewWindow) {
+      console.log('changing window location');
+      this.previewWindow.location = makeContentSyncPreviewUrl({ contentSyncUrl, manifestId });
     }
+
+    // this.refreshPreview();
   }
 
   onSysChanged = (sysMeta) => {
@@ -147,9 +153,11 @@ export default class Sidebar extends React.Component {
      */
 
     console.log({ sysMeta });
-    this.handleGatsbyBuilds(sysMeta);
+
     this.setManifestId(sysMeta);
     // this.maybeStartProductionBuild(sysMeta);
+
+    this.handleGatsbyBuilds(sysMeta);
     this.buildSlug();
   };
 
@@ -221,13 +229,23 @@ export default class Sidebar extends React.Component {
     this.setState({ slug: finalSlug })
   }
 
+
+  /**
+   * 1. click open preview
+   * 2. wait for contentful to save
+   * 3. open content sync ui
+   * 4. hit preview webhook
+   */
+
   refreshPreview = async () => {
-    const { parameters, ids, space } = this.sdk;
+    const { parameters } = this.sdk;
     const {
       webhookUrl,
       previewWebhookUrl,
-      authToken
+      authToken,
+      contentSyncUrl,
     } = parameters.installation;
+    const { manifestId } = this.state;
 
     // const entry = await space.getEntry(ids.entry);
     // const snapshots = await space.getEntrySnapshots(ids.entry);
@@ -242,6 +260,12 @@ export default class Sidebar extends React.Component {
       // @todo show this in the UI
       console.warn(`Please add a Preview Webhook URL to your Gatsby App settings.`)
     }
+
+    // console.log({ contentSyncUrl, manifestId, previewWindow: this.previewWindow });
+    // if (contentSyncUrl && manifestId && this.previewWindow) {
+    //   console.log('changing window location');
+    //   this.previewWindow.location = makeContentSyncPreviewUrl({ contentSyncUrl, manifestId });
+    // }
   };
 
   render = () => {
@@ -253,7 +277,7 @@ export default class Sidebar extends React.Component {
     const { slug, manifestId } = this.state
 
     if (contentSyncUrl && manifestId) {
-      previewUrl = `${contentSyncUrl}/gatsby-source-contentful/${manifestId}`;
+      previewUrl = makeContentSyncPreviewUrl({ contentSyncUrl, manifestId });
     }
 
     return (
@@ -263,7 +287,9 @@ export default class Sidebar extends React.Component {
             contentSlug={!contentSyncUrl && !!slug && slug}
             previewUrl={previewUrl}
             authToken={authToken}
-            onOpenPreviewButtonClick={this.refreshPreview}
+            onOpenPreviewButtonClick={({ previewWindow }) => {
+              this.previewWindow = previewWindow;
+            }}
           />
         </div>
       </div>
