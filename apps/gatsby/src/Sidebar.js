@@ -24,6 +24,7 @@ export default class Sidebar extends React.Component {
       slug: null,
       manifestId: null,
       lastPublishedDateTime: null,
+      lastUpdatedDateTime: null,
     };
 
     this.sdk = props.sdk;
@@ -33,9 +34,11 @@ export default class Sidebar extends React.Component {
     this.sdk.entry.onSysChanged(this.onSysChanged);
     this.sdk.window.startAutoResizer();
 
+
     const content = this.props.sdk.entry.getSys();
     this.setManifestId(content);
     this.setLastPublishedDateTime(content);
+    this.setLastUpdatedDateTime(content);
   }
 
   /**
@@ -48,9 +51,15 @@ export default class Sidebar extends React.Component {
     this.setState({ manifestId });
   }
 
-  setLastPublishedDateTime = (content) => {
+  setLastPublishedDateTime = (sysMeta) => {
     this.setState({
-      lastPublishedDateTime: content.publishedAt,
+      lastPublishedDateTime: sysMeta.publishedAt,
+    });
+  }
+
+  setLastUpdatedDateTime = (sysMeta) => {
+    this.setState({
+      lastUpdatedDateTime: sysMeta.updatedAt,
     });
   }
 
@@ -74,16 +83,73 @@ export default class Sidebar extends React.Component {
       /**
        * @todo add this warning to the UI
        */
-      console.warn('Warning: Gatsby production build not started since no webhookUrl has been configured.');
+      console.warn('Warning: Gatsby production build not started since no webhook url has been configured.');
       return;
     }
 
     callWebhook(webhookUrl, authToken);
   }
 
-  onSysChanged = (content) => {
-    this.setManifestId(content);
-    this.maybeStartProductionBuild(content);
+  startGatsbyProductionBuild = () => {
+    const { webhookUrl, authToken } = this.sdk.parameters.installation;
+
+    if (!webhookUrl) {
+      /**
+       * @todo add this warning to the UI
+       */
+      console.warn('Warning: Gatsby production build not started since no webhook url has been configured.');
+      return;
+    }
+
+    callWebhook(webhookUrl, authToken);
+  }
+
+  startGatsbyPreviewBuild = () => {
+    const { previewWebhookUrl, authToken } = this.sdk.parameters.installation;
+
+    if (!previewWebhookUrl) {
+      /**
+       * @todo add this warning to the UI
+       */
+      console.warn('Warning: Gatsby preview build not started since no preview webhook url has been configured.');
+      return;
+    }
+
+    callWebhook(previewWebhookUrl, authToken);
+    
+  }
+
+  handleGatsbyBuilds = (sysMeta) => {
+    const { lastPublishedDateTime, lastUpdatedDateTime } = this.state;
+
+    /**
+     * if these timestamps are equal than the content has not been published OR has not been
+     * re-published after changes to the content have been made
+     */
+    if (lastPublishedDateTime && lastPublishedDateTime !== sysMeta.publishedAt) {
+      console.log('production build');
+      this.startGatsbyProductionBuild();
+      return;
+    }
+
+    if (lastUpdatedDateTime && lastUpdatedDateTime === sysMeta.updatedAt) {
+      console.log('preview build');
+      this.startGatsbyPreviewBuild();
+      return
+    }
+  }
+
+  onSysChanged = (sysMeta) => {
+    /**
+     * click to open
+     * set class member that tracks that the preview should be opening
+     * once this fires, open the preview tab
+     */
+
+    console.log({ sysMeta });
+    this.handleGatsbyBuilds(sysMeta);
+    this.setManifestId(sysMeta);
+    // this.maybeStartProductionBuild(sysMeta);
     this.buildSlug();
   };
 
@@ -155,12 +221,18 @@ export default class Sidebar extends React.Component {
     this.setState({ slug: finalSlug })
   }
 
-  refreshPreview = () => {
+  refreshPreview = async () => {
+    const { parameters, ids, space } = this.sdk;
     const {
       webhookUrl,
       previewWebhookUrl,
       authToken
-    } = this.sdk.parameters.installation;
+    } = parameters.installation;
+
+    // const entry = await space.getEntry(ids.entry);
+    // const snapshots = await space.getEntrySnapshots(ids.entry);
+    // const updatedEntryResult = await space.updateEntry(entry);
+    // console.log({ sdk: this.props, entry, updatedEntryResult, snapshots });
 
     if (previewWebhookUrl)  {
       callWebhook(previewWebhookUrl, authToken);
@@ -198,4 +270,3 @@ export default class Sidebar extends React.Component {
     );
   };
 }
-
