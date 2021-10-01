@@ -177,7 +177,7 @@ export default class Sidebar extends React.Component {
       callWebhook(webhookUrl, authToken);
     } else {
       // @todo show this in the UI
-      console.warn(`Please add a Preview Webhook URL to your Gatsby App settings.`)
+      console.warn(`Please add a Preview Webhook URL to your Gatsby Cloud App settings.`)
     }
   };
 
