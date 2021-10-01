@@ -280,6 +280,8 @@ export default class Sidebar extends React.Component {
       previewUrl = makeContentSyncPreviewUrl({ contentSyncUrl, manifestId });
     }
 
+    console.log({ sdk: this.props.sdk });
+
     return (
       <div className="extension">
         <div className="flexcontainer">
