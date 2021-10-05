@@ -1,7 +1,11 @@
 import React from "react";
 import PropTypes from "prop-types";
 import { ExtensionUI } from "@gatsby-cloud-pkg/gatsby-cms-extension-base";
+import { Spinner, HelpText, Icon } from "@contentful/forma-36-react-components";
 import { callWebhook } from "./utils";
+
+const STATUS_STYLE = { textAlign: "center", color: "#7f7c82" };
+const ICON_STYLE = { marginBottom: "-4px" };
 export default class Sidebar extends React.Component {
   static propTypes = {
     sdk: PropTypes.object.isRequired,
@@ -169,9 +173,39 @@ export default class Sidebar extends React.Component {
     this.setState({ slug: finalSlug });
   };
 
-  refreshPreview = () => {
+  manuallySaveContentEntry = async () => {
+    const { entry, space, ids } = this.props.sdk;
+    const fields = Object.entries(entry.fields);
+
+    const updatedEntry = await space.getEntry(ids.entry);
+
+    fields.forEach(([fieldName, field]) => {
+      const { locales } = field;
+
+      locales.forEach((locale) => {
+        const fieldLocale = field._getFieldLocale(locale);
+        const fieldValue = fieldLocale.getValue();
+
+        // if a field was previously empty, it will not be on the updateEntry object
+        let updateField = updatedEntry.fields[fieldName];
+        if (!updateField) {
+          updateField = {};
+          updatedEntry.fields[fieldName] = updateField;
+        }
+
+        updateField[locale] = fieldValue;
+      });
+    });
+
+    return space.updateEntry(updatedEntry);
+  };
+
+  refreshPreview = async () => {
+    console.log("asfasfasf");
     const { webhookUrl, previewWebhookUrl, authToken } =
       this.sdk.parameters.installation;
+
+    await this.manuallySaveContentEntry();
 
     if (previewWebhookUrl) {
       callWebhook(previewWebhookUrl, authToken);
@@ -180,29 +214,59 @@ export default class Sidebar extends React.Component {
     } else {
       // @todo show this in the UI
       console.warn(
-        `Please add a Preview Webhook URL to your Gatsby App settings.`
+        `Please add a Preview Webhook URL to your Gatsby Cloud App settings.`
       );
     }
   };
 
-  render = () => {
-    let { contentSyncUrl, authToken, previewUrl } =
-      this.sdk.parameters.installation;
-    const { slug, manifestId } = this.state;
+  getPreviewUrl = () => {
+    let { previewUrl, contentSyncUrl } = this.props.sdk.parameters.installation;
+    const { manifestId } = this.state;
 
     if (contentSyncUrl && manifestId) {
       previewUrl = `${contentSyncUrl}/gatsby-source-contentful/${manifestId}`;
     }
 
+    return previewUrl;
+  };
+
+  render = () => {
+    let {
+      contentSyncUrl,
+      authToken,
+      previewUrl,
+      webhookUrl,
+      previewWebhookUrl,
+    } = this.sdk.parameters.installation;
+    const { slug } = this.state;
+
+    previewUrl = this.getPreviewUrl();
+
     return (
       <div className="extension">
         <div className="flexcontainer">
-          <ExtensionUI
-            contentSlug={!contentSyncUrl && !!slug && slug}
-            previewUrl={previewUrl}
-            authToken={authToken}
-            onOpenPreviewButtonClick={this.refreshPreview}
-          />
+          {previewWebhookUrl || webhookUrl ? (
+            <ExtensionUI
+              contentSlug={!contentSyncUrl && !!slug && slug}
+              previewUrl={previewUrl}
+              authToken={authToken}
+              onOpenPreviewButtonClick={async ({ previewWindow }) => {
+                await this.refreshPreview();
+                /**
+                 * ExtensionUI returns a reference to the opened tab (previewWindow) after eagerly
+                 * opening it with the given previewUrl. Because there is a small chance that this will
+                 * have a stale manifestId, we update the url in the opened preview tab just in case
+                 * to ensure that the user is redirected to the correct preview build
+                 */
+                previewWindow.location.href = this.getPreviewUrl();
+              }}
+            />
+          ) : (
+            <HelpText style={STATUS_STYLE}>
+              <Icon icon="Warning" color="negative" style={ICON_STYLE} /> Please
+              add a Preview Webhook URL to your Gatsby App settings.
+            </HelpText>
+          )}
         </div>
       </div>
     );

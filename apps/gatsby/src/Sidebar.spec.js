@@ -71,7 +71,6 @@ describe("Gatsby App Sidebar", () => {
         cancelable: true,
       })
     );
-
     expect(mockFetch.mock.calls[0][0]).toEqual("https://webhook.com");
     expect(mockWindowOpen.mock.calls[0][0]).toEqual("https://preview.com");
   });
