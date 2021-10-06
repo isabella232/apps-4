@@ -6,7 +6,6 @@ import {
   Typography,
   Paragraph,
   TextField,
-  TextLink,
 } from "@contentful/forma-36-react-components";
 import GatsbyIcon from "../GatsbyIcon";
 import { isValidUrl } from '../utils';
@@ -175,7 +174,7 @@ export class AppConfig extends React.Component {
   };
 
   validatePreviewUrl = () => {
-    if (!isValidUrl(this.state.previewUrl) && this.state.previewUrl != "") {
+    if (!isValidUrl(this.state.previewUrl) && this.state.previewUrl !== "") {
       this.setState({ validPreview: false });
     }
   };
