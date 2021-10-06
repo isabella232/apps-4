@@ -174,7 +174,9 @@ export class AppConfig extends React.Component {
   };
 
   validatePreviewUrl = () => {
-    if (!isValidUrl(this.state.previewUrl) && this.state.previewUrl !== "") {
+    if (this.state.previewUrl) {
+      this.setState({ validPreview: isValidUrl(this.state.previewUrl) }),
+    }
       this.setState({ validPreview: false });
     }
   };
