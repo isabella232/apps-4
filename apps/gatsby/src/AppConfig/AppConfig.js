@@ -175,9 +175,7 @@ export class AppConfig extends React.Component {
 
   validatePreviewUrl = () => {
     if (this.state.previewUrl) {
-      this.setState({ validPreview: isValidUrl(this.state.previewUrl) }),
-    }
-      this.setState({ validPreview: false });
+      this.setState({ validPreview: isValidUrl(this.state.previewUrl) })
     }
   };
 
@@ -359,7 +357,7 @@ export class AppConfig extends React.Component {
               }
               validationMessage={
                 !this.state.validPreview
-                  ? "Please provide a valid URL (It should start with http)"
+                  ? urlHelpText
                   : ""
               }
               textInputProps={{
